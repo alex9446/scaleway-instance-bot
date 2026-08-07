@@ -1,5 +1,5 @@
 set -e
 
-poetry run flake8 bot
-poetry run pyright bot
-poetry run isort bot
+poetry run flake8 "$@"
+poetry run pyright "$@"
+poetry run isort "$@"
