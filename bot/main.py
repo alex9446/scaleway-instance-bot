@@ -3,8 +3,10 @@ from os import getenv
 from sys import stderr
 
 from fastapi import FastAPI, Request, Response, status
-from telegram import Chat, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler
+
+from .commands import Commands
 
 SECRET_HEADER = 'X-Telegram-Bot-Api-Secret-Token'
 BOT_TOKEN = getenv('BOT_TOKEN')
@@ -29,19 +31,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 allowed_chats_list = list(map(int, ALLOWED_CHATS.split(',')))
+commands = Commands(allowed_chats_list)
 
-
-def check_chat(chat: Chat):
-    if chat.id not in allowed_chats_list:
-        raise PermissionError(f'chat {chat.id} not allowed')
-
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if message := update.message:
-        check_chat(message.chat)
-        await message.reply_text('Hello!')
-
-telegram_app.add_handler(CommandHandler('start', start_command))
+telegram_app.add_handler(CommandHandler('start', commands.start_command))
 
 
 @app.post("/webhook")
