@@ -33,7 +33,9 @@ app = FastAPI(lifespan=lifespan)
 allowed_chats_list = list(map(int, ALLOWED_CHATS.split(',')))
 commands = Commands(allowed_chats_list)
 
-telegram_app.add_handler(CommandHandler('start', commands.start_command))
+telegram_app.add_handler(
+    CommandHandler(['start', 'help'], commands.start_command)
+)
 
 
 @app.post("/webhook")
