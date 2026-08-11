@@ -1,3 +1,4 @@
+#!/bin/sh
 set -e
 
 poetry run flake8 "$@"
