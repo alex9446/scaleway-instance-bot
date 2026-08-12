@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+echo "PRE-commit check..."
+
+# mute stdout ad stderr
+[ "$1" != "-v" ] && exec > /dev/null 2>&1
+
+sh dev-tools/check_code.sh bot
+sh dev-tools/check_code.sh dev-tools
