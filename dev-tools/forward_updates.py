@@ -1,4 +1,5 @@
 from os import getenv
+from time import sleep
 
 from requests import get, post
 from requests.exceptions import ConnectionError
@@ -33,8 +34,7 @@ while True:
         try:
             headers = {SECRET_HEADER: SECRET_TOKEN}
             post(LOCALHOST, json=update, headers=headers)
+            offset = update['update_id'] + 1
         except ConnectionError:
             print(f'{LOCALHOST} connection error!')
-            break
-
-        offset = update['update_id'] + 1
+            sleep(5)

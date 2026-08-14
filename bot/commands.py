@@ -1,13 +1,16 @@
 from logging import getLogger
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Literal
 
-from telegram import BotCommand, BotCommandScopeChat, Chat, Message, Update
+from telegram import (BotCommand, BotCommandScopeChat, Chat,
+                      InlineKeyboardButton, InlineKeyboardMarkup, Message,
+                      Update)
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
 from .scaleway import Scaleway
 
 DEFAULT_CONTEXT = ContextTypes.DEFAULT_TYPE
+SERVERACTIONS = Literal['poweron', 'poweroff']
 
 logger = getLogger(__name__)
 
@@ -15,7 +18,9 @@ commands = [
     BotCommand('start', 'print list of commands'),
     BotCommand('help', 'print list of commands'),
     BotCommand('set_commands', 'set commands menu'),
-    BotCommand('list_servers', 'list scaleway servers')
+    BotCommand('list_servers', 'list scaleway servers'),
+    BotCommand('poweron', 'poweron scaleway server'),
+    BotCommand('poweroff', 'poweroff scaleway server')
 ]
 command_lines = [f'/{cmd.command} - {cmd.description}' for cmd in commands]
 
@@ -62,3 +67,23 @@ class Commands:
         servers_lines = [f'*{escape(s.name)}*: _{escape(s.state)}_'
                          for s in servers]
         await message.reply_markdown_v2('\n'.join(servers_lines))
+
+    @staticmethod
+    async def ask_which_server(message: Message, action: SERVERACTIONS):
+        servers = await Scaleway().list_servers()
+        keyboard = [
+            InlineKeyboardButton(s.name, callback_data=f'{action}:{s.id}')
+            for s in servers
+        ]
+        await message.reply_markdown_v2(
+            f'Which server do you want to *{action}*?',
+            reply_markup=InlineKeyboardMarkup.from_column(keyboard)
+        )
+
+    @only_allowed_chats
+    async def poweron(self, message: Message, context: DEFAULT_CONTEXT):
+        await self.ask_which_server(message, action='poweron')
+
+    @only_allowed_chats
+    async def poweroff(self, message: Message, context: DEFAULT_CONTEXT):
+        await self.ask_which_server(message, action='poweroff')

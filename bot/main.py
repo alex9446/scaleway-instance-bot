@@ -36,7 +36,9 @@ commands = Commands(allowed_chats_list)
 telegram_app.add_handlers([
     CommandHandler(['start', 'help'], commands.start_command),
     CommandHandler('set_commands', commands.set_commands),
-    CommandHandler('list_servers', commands.list_servers)
+    CommandHandler('list_servers', commands.list_servers),
+    CommandHandler('poweron', commands.poweron),
+    CommandHandler('poweroff', commands.poweroff),
 ])
 
 
