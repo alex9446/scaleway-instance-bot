@@ -8,4 +8,4 @@ poetry run python dev-tools/forward_updates.py &
 BG_PID=$!
 trap "kill $BG_PID" EXIT INT TERM
 
-poetry run uvicorn bot.main:app --reload
+poetry run uvicorn bot.main:app --log-level debug --reload

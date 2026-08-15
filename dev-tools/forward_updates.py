@@ -23,7 +23,7 @@ while True:
     url += f'?offset={offset}&timeout={TIMEOUT}'
 
     try:
-        data = get(url, timeout=TIMEOUT+10).json()
+        data = get(url, timeout=TIMEOUT*2).json()
     except KeyboardInterrupt:
         break
 

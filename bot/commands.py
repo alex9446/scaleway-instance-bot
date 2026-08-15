@@ -1,18 +1,18 @@
 from logging import getLogger
-from typing import Awaitable, Callable, Literal
+from typing import Awaitable, Callable
 
-from telegram import (BotCommand, BotCommandScopeChat, Chat,
+from telegram import (BotCommand, BotCommandScopeChat, CallbackQuery,
                       InlineKeyboardButton, InlineKeyboardMarkup, Message,
                       Update)
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
-from .scaleway import Scaleway
+from .scaleway import SERVERACTIONS, Scaleway
 
 DEFAULT_CONTEXT = ContextTypes.DEFAULT_TYPE
-SERVERACTIONS = Literal['poweron', 'poweroff']
+CHAT_ID = int
 
-logger = getLogger(__name__)
+logger = getLogger('uvicorn.error')
 
 commands = [
     BotCommand('start', 'print list of commands'),
@@ -25,18 +25,36 @@ commands = [
 command_lines = [f'/{cmd.command} - {cmd.description}' for cmd in commands]
 
 
-def only_allowed_chats(f: Callable[["Commands", Message, DEFAULT_CONTEXT],
-                                   Awaitable[None]]):
+def only_allowed_chats_message(
+    f: Callable[["Commands", Message, DEFAULT_CONTEXT], Awaitable[None]]
+):
     async def w(self: "Commands", update: Update, context: DEFAULT_CONTEXT):
         if message := update.message:
-            chat_id = message.chat.id
-            if chat_id in self.allowed_chats:
+            allowed, chat_id = self.is_chat_allowed(update)
+            if allowed:
                 await f(self, message, context)
             else:
                 logger.warning('chat %s not allowed', chat_id)
                 await message.reply_text('this chat is not allowed')
         else:
             logger.warning('message is None')
+    return w
+
+
+def only_allowed_chats_callback(
+    f: Callable[["Commands", CallbackQuery], Awaitable[None]]
+):
+    async def w(self: "Commands", update: Update, context: DEFAULT_CONTEXT):
+        if callback_query := update.callback_query:
+            allowed, chat_id = self.is_chat_allowed(update)
+            if allowed:
+                await f(self, callback_query)
+            else:
+                logger.warning('chat %s not allowed', chat_id)
+                if message := update.effective_message:
+                    await message.reply_text('this chat is not allowed')
+        else:
+            logger.warning('callback_query is None')
     return w
 
 
@@ -47,21 +65,25 @@ class Commands:
     def __init__(self, allowed_chats: set[int]):
         self.allowed_chats = allowed_chats
 
-    def check_chat(self, chat: Chat):
-        if chat.id not in self.allowed_chats:
-            raise PermissionError(f'chat {chat.id} not allowed')
+    def is_chat_allowed(self, update: Update) -> tuple[bool, CHAT_ID]:
+        if chat := update.effective_chat:
+            chat_id = chat.id
+            if chat_id in self.allowed_chats:
+                return (True, chat_id)
+            return (False, chat_id)
+        return (False, 0)
 
-    @only_allowed_chats
+    @only_allowed_chats_message
     async def start_command(self, message: Message, context: DEFAULT_CONTEXT):
         await message.reply_text('\n'.join(command_lines))
 
-    @only_allowed_chats
+    @only_allowed_chats_message
     async def set_commands(self, message: Message, context: DEFAULT_CONTEXT):
         scope = BotCommandScopeChat(message.chat.id)
         await context.bot.set_my_commands(commands, scope)
         await message.reply_text('The commands have been set')
 
-    @only_allowed_chats
+    @only_allowed_chats_message
     async def list_servers(self, message: Message, context: DEFAULT_CONTEXT):
         servers = await Scaleway().list_servers()
         servers_lines = [f'*{escape(s.name)}*: _{escape(s.state)}_'
@@ -80,10 +102,23 @@ class Commands:
             reply_markup=InlineKeyboardMarkup.from_column(keyboard)
         )
 
-    @only_allowed_chats
+    @only_allowed_chats_message
     async def poweron(self, message: Message, context: DEFAULT_CONTEXT):
         await self.ask_which_server(message, action='poweron')
 
-    @only_allowed_chats
+    @only_allowed_chats_message
     async def poweroff(self, message: Message, context: DEFAULT_CONTEXT):
         await self.ask_which_server(message, action='poweroff')
+
+    @only_allowed_chats_callback
+    async def ask_callback(self, callback_query: CallbackQuery):
+        await callback_query.answer()
+        data = callback_query.data
+        if not data:
+            await callback_query.edit_message_text('no data in callback_query')
+            return
+        try:
+            action = await Scaleway().perform_raw_action(data)
+            await callback_query.edit_message_text(f'sended {action} action')
+        except ValueError as error:
+            await callback_query.edit_message_text(str(error))

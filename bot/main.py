@@ -4,7 +4,8 @@ from sys import stderr
 
 from fastapi import FastAPI, Request, Response, status
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler
+from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
+                          CommandHandler)
 
 from .commands import Commands
 
@@ -39,6 +40,7 @@ telegram_app.add_handlers([
     CommandHandler('list_servers', commands.list_servers),
     CommandHandler('poweron', commands.poweron),
     CommandHandler('poweroff', commands.poweroff),
+    CallbackQueryHandler(commands.ask_callback, r'^(poweron|poweroff):.+$')
 ])
 
 
