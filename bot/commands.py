@@ -102,13 +102,33 @@ class Commands:
             reply_markup=InlineKeyboardMarkup.from_column(keyboard)
         )
 
+    @staticmethod
+    async def try_action(action: SERVERACTIONS, server_name: str):
+        try:
+            await Scaleway().perform_raw_action(f'{action}:{server_name}')
+            return f'sended {action} action'
+        except ValueError as error:
+            return str(error)
+
+    @staticmethod
+    def get_server_name(context: DEFAULT_CONTEXT):
+        return context.args[0] if context.args else None
+
     @only_allowed_chats_message
     async def poweron(self, message: Message, context: DEFAULT_CONTEXT):
-        await self.ask_which_server(message, action='poweron')
+        if server_name := self.get_server_name(context):
+            msg = await self.try_action('poweron', server_name)
+            await message.reply_text(msg)
+        else:
+            await self.ask_which_server(message, action='poweron')
 
     @only_allowed_chats_message
     async def poweroff(self, message: Message, context: DEFAULT_CONTEXT):
-        await self.ask_which_server(message, action='poweroff')
+        if server_name := self.get_server_name(context):
+            msg = await self.try_action('poweroff', server_name)
+            await message.reply_text(msg)
+        else:
+            await self.ask_which_server(message, action='poweroff')
 
     @only_allowed_chats_callback
     async def ask_callback(self, callback_query: CallbackQuery):

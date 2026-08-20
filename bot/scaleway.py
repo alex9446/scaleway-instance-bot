@@ -59,11 +59,13 @@ class Scaleway:
         )
 
     async def perform_raw_action(self, raw_action: str):
-        action, server_id = raw_action.split(':', maxsplit=1)
+        action, server_id_or_name = raw_action.split(':', maxsplit=1)
         if not is_action(action):
             raise ValueError('action not valid')
-        if not is_uuid_v4(server_id):
-            raise ValueError('server_id not valid')
-        server = await self.find_server_by_id(server_id)
+        server = (
+            await self.find_server_by_id(server_id_or_name)
+            if is_uuid_v4(server_id_or_name) else
+            await self.find_server_by_name(server_id_or_name)
+        )
         await self.perform_action(action, server)
         return action
