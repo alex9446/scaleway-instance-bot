@@ -49,7 +49,7 @@ async def telegram_webhook(request: Request):
     try:
         r_secret = request.headers.get(SECRET_HEADER)
         if r_secret != SECRET_TOKEN:
-            raise PermissionError(f'wrong telegram secret token: {r_secret}')
+            raise PermissionError('wrong telegram secret token')
 
         update = Update.de_json(await request.json(), telegram_app.bot)
         await telegram_app.process_update(update)

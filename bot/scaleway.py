@@ -28,9 +28,10 @@ class Scaleway:
         self.instance_api = InstanceV1API(self.client)
 
     async def list_servers(self):
-        server = await gather(*[self.instance_api.list_servers_all(zone=zone)
-                                for zone in ALL_ZONES])
-        return [item for sublist in server for item in sublist]
+        servers = await gather(*[
+            self.instance_api.list_servers_all(zone=zone) for zone in ALL_ZONES
+        ])
+        return [server for zone_servers in servers for server in zone_servers]
 
     async def find_server_by_id(self, server_id: UUID):
         servers = await self.list_servers()

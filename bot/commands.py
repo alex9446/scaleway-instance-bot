@@ -66,12 +66,8 @@ class Commands:
         self.allowed_chats = allowed_chats
 
     def is_chat_allowed(self, update: Update) -> tuple[bool, CHAT_ID]:
-        if chat := update.effective_chat:
-            chat_id = chat.id
-            if chat_id in self.allowed_chats:
-                return (True, chat_id)
-            return (False, chat_id)
-        return (False, 0)
+        chat_id = update.effective_chat.id if update.effective_chat else 0
+        return (chat_id in self.allowed_chats, chat_id)
 
     @only_allowed_chats_message
     async def start_command(self, message: Message, context: DEFAULT_CONTEXT):
@@ -114,21 +110,21 @@ class Commands:
     def get_server_name(context: DEFAULT_CONTEXT):
         return context.args[0] if context.args else None
 
-    @only_allowed_chats_message
-    async def poweron(self, message: Message, context: DEFAULT_CONTEXT):
+    async def power(self, message: Message, context: DEFAULT_CONTEXT,
+                    action: SERVERACTIONS):
         if server_name := self.get_server_name(context):
-            msg = await self.try_action('poweron', server_name)
+            msg = await self.try_action(action, server_name)
             await message.reply_text(msg)
         else:
-            await self.ask_which_server(message, action='poweron')
+            await self.ask_which_server(message, action)
+
+    @only_allowed_chats_message
+    async def poweron(self, message: Message, context: DEFAULT_CONTEXT):
+        await self.power(message, context, 'poweron')
 
     @only_allowed_chats_message
     async def poweroff(self, message: Message, context: DEFAULT_CONTEXT):
-        if server_name := self.get_server_name(context):
-            msg = await self.try_action('poweroff', server_name)
-            await message.reply_text(msg)
-        else:
-            await self.ask_which_server(message, action='poweroff')
+        await self.power(message, context, 'poweroff')
 
     @only_allowed_chats_callback
     async def ask_callback(self, callback_query: CallbackQuery):
