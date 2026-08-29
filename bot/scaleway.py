@@ -6,12 +6,14 @@ from scaleway_async import ALL_ZONES, Client
 from scaleway_async.instance.v1.api import InstanceV1API
 from scaleway_async.instance.v1.types import Server, ServerAction
 
-SERVERACTIONS = Literal['poweron', 'poweroff']
+AllowedActions = Literal[
+    ServerAction.POWERON, ServerAction.POWEROFF, ServerAction.STOP_IN_PLACE
+]
+ALLOWED_ACTIONS: set[str] = set(get_args(AllowedActions))
 
 
-def is_action(action_to_test: str) -> TypeGuard[SERVERACTIONS]:
-    valid_actions = get_args(SERVERACTIONS)
-    return action_to_test in valid_actions
+def is_allowed_action(action_to_test: str) -> TypeGuard[AllowedActions]:
+    return action_to_test in ALLOWED_ACTIONS
 
 
 def is_uuid_v4(uuid_to_test: str, version: int = 4) -> TypeGuard[UUID]:
@@ -47,7 +49,7 @@ class Scaleway:
             raise ValueError(f'no server with name: {server_name}')
         return server
 
-    async def perform_action(self, action: SERVERACTIONS, server: Server):
+    async def perform_action(self, action: AllowedActions, server: Server):
         server_state = server.state
         if ((action == 'poweron' and server_state != 'stopped') or
                 (action == 'poweroff' and server_state != 'running')):
@@ -61,7 +63,7 @@ class Scaleway:
 
     async def perform_raw_action(self, raw_action: str):
         action, server_id_or_name = raw_action.split(':', maxsplit=1)
-        if not is_action(action):
+        if not is_allowed_action(action):
             raise ValueError('action not valid')
         server = (
             await self.find_server_by_id(server_id_or_name)

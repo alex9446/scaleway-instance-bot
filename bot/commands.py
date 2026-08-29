@@ -7,7 +7,8 @@ from telegram import (BotCommand, BotCommandScopeChat, CallbackQuery,
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
-from .scaleway import SERVERACTIONS, Scaleway
+from .scaleway import (ALLOWED_ACTIONS, AllowedActions, Scaleway,
+                       is_allowed_action)
 
 DEFAULT_CONTEXT = ContextTypes.DEFAULT_TYPE
 CHAT_ID = int
@@ -19,8 +20,8 @@ commands = [
     BotCommand('help', 'print list of commands'),
     BotCommand('set_commands', 'set commands menu'),
     BotCommand('list_servers', 'list scaleway servers'),
-    BotCommand('poweron', 'poweron scaleway server'),
-    BotCommand('poweroff', 'poweroff scaleway server')
+    *[BotCommand(action, f'{action} scaleway server')
+      for action in sorted(ALLOWED_ACTIONS)]
 ]
 command_lines = [f'/{cmd.command} - {cmd.description}' for cmd in commands]
 
@@ -87,7 +88,7 @@ class Commands:
         await message.reply_markdown_v2('\n'.join(servers_lines))
 
     @staticmethod
-    async def ask_which_server(message: Message, action: SERVERACTIONS):
+    async def ask_which_server(message: Message, action: AllowedActions):
         servers = await Scaleway().list_servers()
         keyboard = [
             InlineKeyboardButton(s.name, callback_data=f'{action}:{s.id}')
@@ -99,7 +100,7 @@ class Commands:
         )
 
     @staticmethod
-    async def try_action(action: SERVERACTIONS, server_name: str):
+    async def try_action(action: AllowedActions, server_name: str):
         try:
             await Scaleway().perform_raw_action(f'{action}:{server_name}')
             return f'sended {action} action'
@@ -110,21 +111,20 @@ class Commands:
     def get_server_name(context: DEFAULT_CONTEXT):
         return context.args[0] if context.args else None
 
-    async def power(self, message: Message, context: DEFAULT_CONTEXT,
-                    action: SERVERACTIONS):
+    @only_allowed_chats_message
+    async def maybe_action(self, message: Message, context: DEFAULT_CONTEXT):
+        if not message.text:
+            await message.reply_text('text is None')
+            return
+        action = message.text.split()[0].replace('/', '').split("@")[0]
+        if not is_allowed_action(action):
+            await message.reply_text('action not valid')
+            return
         if server_name := self.get_server_name(context):
             msg = await self.try_action(action, server_name)
             await message.reply_text(msg)
         else:
             await self.ask_which_server(message, action)
-
-    @only_allowed_chats_message
-    async def poweron(self, message: Message, context: DEFAULT_CONTEXT):
-        await self.power(message, context, 'poweron')
-
-    @only_allowed_chats_message
-    async def poweroff(self, message: Message, context: DEFAULT_CONTEXT):
-        await self.power(message, context, 'poweroff')
 
     @only_allowed_chats_callback
     async def ask_callback(self, callback_query: CallbackQuery):
