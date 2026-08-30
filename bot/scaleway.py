@@ -5,6 +5,7 @@ from uuid import UUID
 from scaleway_async import ALL_ZONES, Client
 from scaleway_async.instance.v1.api import InstanceV1API
 from scaleway_async.instance.v1.types import Server, ServerAction
+from scaleway_core.api import ScalewayException
 
 AllowedActions = Literal[
     ServerAction.POWERON, ServerAction.POWEROFF, ServerAction.STOP_IN_PLACE
@@ -50,16 +51,17 @@ class Scaleway:
         return server
 
     async def perform_action(self, action: AllowedActions, server: Server):
-        server_state = server.state
-        if ((action == 'poweron' and server_state != 'stopped') or
-                (action == 'poweroff' and server_state != 'running')):
-            raise ValueError(f'server is already {server_state}')
-
-        await self.instance_api.server_action(
-            action=ServerAction(action),
-            server_id=server.id,
-            zone=server.zone
-        )
+        try:
+            await self.instance_api.server_action(
+                action=ServerAction(action),
+                server_id=server.id,
+                zone=server.zone
+            )
+        except ScalewayException as e:
+            try:
+                raise ValueError(e.response.json()['help_message'])
+            except KeyError:
+                raise ValueError('ScalewayException occurred')
 
     async def perform_raw_action(self, raw_action: str):
         action, server_id_or_name = raw_action.split(':', maxsplit=1)

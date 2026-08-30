@@ -1,13 +1,16 @@
 from contextlib import asynccontextmanager
+from logging import getLogger
 from os import getenv
-from sys import stderr
 
 from fastapi import FastAPI, Request, Response, status
 from telegram import Update
 from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
                           CommandHandler, MessageHandler, filters)
 
-from .commands import Commands
+from .commands import DEFAULT_CONTEXT, Commands
+from .utils import can_reach_telegram
+
+logger = getLogger('uvicorn.error')
 
 SECRET_HEADER = 'X-Telegram-Bot-Api-Secret-Token'
 BOT_TOKEN = getenv('BOT_TOKEN')
@@ -23,19 +26,24 @@ telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await telegram_app.initialize()
-    await telegram_app.start()
-    yield
-    await telegram_app.stop()
-    await telegram_app.shutdown()
+    async with telegram_app:
+        yield
 
 app = FastAPI(lifespan=lifespan)
+
+
+async def telegram_error_handler(update: object | None,
+                                 context: DEFAULT_CONTEXT):
+    logger.critical('exception in handler: %s', context.error)
+
+telegram_app.add_error_handler(telegram_error_handler)
 
 allowed_chats_list = set(map(int, ALLOWED_CHATS.split(',')))
 commands = Commands(allowed_chats_list)
 
 telegram_app.add_handlers([
-    CommandHandler(['start', 'help'], commands.start_command),
+    CommandHandler(['start', 'help'], commands.start_or_help),
+    CommandHandler('info', commands.info),
     CommandHandler('set_commands', commands.set_commands),
     CommandHandler('list_servers', commands.list_servers),
     MessageHandler(filters.COMMAND, commands.maybe_action),
@@ -46,14 +54,19 @@ telegram_app.add_handlers([
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     try:
+        host = request.client and request.client.host
+        logger.info('new request from %s', host)
         r_secret = request.headers.get(SECRET_HEADER)
         if r_secret != SECRET_TOKEN:
-            raise PermissionError('wrong telegram secret token')
+            logger.warning('wrong telegram secret token from %s', host)
+            return Response(status_code=status.HTTP_403_FORBIDDEN)
 
+        if not can_reach_telegram():
+            logger.critical('telegram is unreachable')
         update = Update.de_json(await request.json(), telegram_app.bot)
         await telegram_app.process_update(update)
 
         return Response(status_code=status.HTTP_200_OK)
     except Exception as e:
-        print(e, file=stderr)
+        logger.critical('unhandled exception: %s', e)
         return Response(status_code=status.HTTP_200_OK)

@@ -9,6 +9,7 @@ from telegram.helpers import escape_markdown
 
 from .scaleway import (ALLOWED_ACTIONS, AllowedActions, Scaleway,
                        is_allowed_action)
+from .utils import get_build_info
 
 DEFAULT_CONTEXT = ContextTypes.DEFAULT_TYPE
 CHAT_ID = int
@@ -18,6 +19,7 @@ logger = getLogger('uvicorn.error')
 commands = [
     BotCommand('start', 'print list of commands'),
     BotCommand('help', 'print list of commands'),
+    BotCommand('info', 'get build info (if any)'),
     BotCommand('set_commands', 'set commands menu'),
     BotCommand('list_servers', 'list scaleway servers'),
     *[BotCommand(action, f'{action} scaleway server')
@@ -65,14 +67,19 @@ def escape(text: str): return escape_markdown(text, version=2)
 class Commands:
     def __init__(self, allowed_chats: set[int]):
         self.allowed_chats = allowed_chats
+        self.build_info = get_build_info()
 
     def is_chat_allowed(self, update: Update) -> tuple[bool, CHAT_ID]:
         chat_id = update.effective_chat.id if update.effective_chat else 0
         return (chat_id in self.allowed_chats, chat_id)
 
     @only_allowed_chats_message
-    async def start_command(self, message: Message, context: DEFAULT_CONTEXT):
+    async def start_or_help(self, message: Message, context: DEFAULT_CONTEXT):
         await message.reply_text('\n'.join(command_lines))
+
+    @only_allowed_chats_message
+    async def info(self, message: Message, context: DEFAULT_CONTEXT):
+        await message.reply_text(self.build_info)
 
     @only_allowed_chats_message
     async def set_commands(self, message: Message, context: DEFAULT_CONTEXT):
@@ -95,7 +102,7 @@ class Commands:
             for s in servers
         ]
         await message.reply_markdown_v2(
-            f'Which server do you want to *{action}*?',
+            f'Which server do you want to *{escape(action)}*?',
             reply_markup=InlineKeyboardMarkup.from_column(keyboard)
         )
 

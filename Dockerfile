@@ -25,6 +25,10 @@ COPY bot ./bot
 
 ENV PATH="/home/lp-user/app/.venv/bin:$PATH"
 
+RUN echo "Build Date: $(date -Is)" > ./build-info.txt
+ARG COMMIT_SHA=unknown
+RUN echo "Git Commit: ${COMMIT_SHA}" >> ./build-info.txt
+
 EXPOSE 8000
 
 CMD ["uvicorn", "bot.main:app", "--host", "0.0.0.0", "--port", "8000"]
