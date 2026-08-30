@@ -8,7 +8,7 @@ from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
                           CommandHandler, MessageHandler, filters)
 
 from .commands import DEFAULT_CONTEXT, Commands
-from .utils import can_reach_telegram
+from .utils import can_reach_telegram, parent_exception
 
 logger = getLogger('uvicorn.error')
 
@@ -35,6 +35,8 @@ app = FastAPI(lifespan=lifespan)
 async def telegram_error_handler(update: object | None,
                                  context: DEFAULT_CONTEXT):
     logger.critical('exception in handler: %s', context.error)
+    p_exception = context.error and parent_exception(context.error)
+    logger.critical('parent exception: %s', p_exception)
 
 telegram_app.add_error_handler(telegram_error_handler)
 
