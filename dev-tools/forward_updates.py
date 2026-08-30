@@ -7,7 +7,7 @@ from requests.exceptions import ConnectionError
 SECRET_HEADER = 'X-Telegram-Bot-Api-Secret-Token'
 BOT_TOKEN = getenv('BOT_TOKEN')
 SECRET_TOKEN = getenv('SECRET_TOKEN')
-TIMEOUT = 30
+TIMEOUT = 5
 LOCALHOST = 'http://localhost:8000/webhook'
 
 if not (BOT_TOKEN and SECRET_TOKEN):
