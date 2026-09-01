@@ -21,7 +21,9 @@ if not (BOT_TOKEN and SECRET_TOKEN and ALLOWED_CHATS):
     required_variables = 'BOT_TOKEN, SECRET_TOKEN, ALLOWED_CHATS'
     raise RuntimeError(f'missing required variables: {required_variables}')
 
-telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
+telegram_app = (
+    ApplicationBuilder().connect_timeout(20).token(BOT_TOKEN).build()
+)
 
 
 @asynccontextmanager
