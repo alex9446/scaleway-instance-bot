@@ -1,3 +1,4 @@
+from asyncio import sleep
 from logging import getLogger
 from typing import Awaitable, Callable, ParamSpec, TypeVar
 
@@ -5,7 +6,7 @@ from telegram.error import TimedOut
 
 from .utils import ExceptionWrapper
 
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 5
 
 logger = getLogger('uvicorn.error')
 
@@ -20,6 +21,7 @@ async def telegram_retry(f: Callable[P, Awaitable[T]],
             return await f(*args, **kwargs)
         except TimedOut as e:
             logger.warning('%s at attempt %s', ExceptionWrapper(e), attempt+1)
+            await sleep(1)
             if attempt == MAX_ATTEMPTS - 1:
                 raise
     assert False
