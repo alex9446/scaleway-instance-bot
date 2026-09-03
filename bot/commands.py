@@ -9,6 +9,7 @@ from telegram.helpers import escape_markdown
 
 from .scaleway import (ALLOWED_ACTIONS, AllowedActions, Scaleway,
                        is_allowed_action)
+from .telegram_retry import telegram_retry
 from .utils import get_build_info
 
 DEFAULT_CONTEXT = ContextTypes.DEFAULT_TYPE
@@ -75,24 +76,26 @@ class Commands:
 
     @only_allowed_chats_message
     async def start_or_help(self, message: Message, context: DEFAULT_CONTEXT):
-        await message.reply_text('\n'.join(command_lines))
+        await telegram_retry(message.reply_text, '\n'.join(command_lines))
 
     @only_allowed_chats_message
     async def info(self, message: Message, context: DEFAULT_CONTEXT):
-        await message.reply_text(self.build_info)
+        await telegram_retry(message.reply_text, self.build_info)
 
     @only_allowed_chats_message
     async def set_commands(self, message: Message, context: DEFAULT_CONTEXT):
         scope = BotCommandScopeChat(message.chat.id)
-        await context.bot.set_my_commands(commands, scope)
-        await message.reply_text('The commands have been set')
+        await telegram_retry(context.bot.set_my_commands, commands, scope)
+        await telegram_retry(message.reply_text, 'The commands have been set')
 
     @only_allowed_chats_message
     async def list_servers(self, message: Message, context: DEFAULT_CONTEXT):
         servers = await Scaleway().list_servers()
         servers_lines = [f'*{escape(s.name)}*: _{escape(s.state)}_'
                          for s in servers]
-        await message.reply_markdown_v2('\n'.join(servers_lines))
+        await telegram_retry(
+            message.reply_markdown_v2, '\n'.join(servers_lines)
+        )
 
     @staticmethod
     async def ask_which_server(message: Message, action: AllowedActions):
@@ -101,7 +104,8 @@ class Commands:
             InlineKeyboardButton(s.name, callback_data=f'{action}:{s.id}')
             for s in servers
         ]
-        await message.reply_markdown_v2(
+        await telegram_retry(
+            message.reply_markdown_v2,
             f'Which server do you want to *{escape(action)}*?',
             reply_markup=InlineKeyboardMarkup.from_column(keyboard)
         )
@@ -121,27 +125,31 @@ class Commands:
     @only_allowed_chats_message
     async def maybe_action(self, message: Message, context: DEFAULT_CONTEXT):
         if not message.text:
-            await message.reply_text('text is None')
+            await telegram_retry(message.reply_text, 'text is None')
             return
         action = message.text.split()[0].replace('/', '').split("@")[0]
         if not is_allowed_action(action):
-            await message.reply_text('action not valid')
+            await telegram_retry(message.reply_text, 'action not valid')
             return
         if server_name := self.get_server_name(context):
             msg = await self.try_action(action, server_name)
-            await message.reply_text(msg)
+            await telegram_retry(message.reply_text, msg)
         else:
             await self.ask_which_server(message, action)
 
     @only_allowed_chats_callback
     async def ask_callback(self, callback_query: CallbackQuery):
-        await callback_query.answer()
+        await telegram_retry(callback_query.answer)
         data = callback_query.data
         if not data:
-            await callback_query.edit_message_text('no data in callback_query')
+            await telegram_retry(
+                callback_query.edit_message_text, 'no data in callback_query'
+            )
             return
         try:
             action = await Scaleway().perform_raw_action(data)
-            await callback_query.edit_message_text(f'sended {action} action')
+            await telegram_retry(
+                callback_query.edit_message_text, f'sended {action} action'
+            )
         except ValueError as error:
-            await callback_query.edit_message_text(str(error))
+            await telegram_retry(callback_query.edit_message_text, str(error))
