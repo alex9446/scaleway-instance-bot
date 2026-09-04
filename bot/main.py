@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from logging import getLogger
 from os import getenv
 
 from fastapi import FastAPI, Request, Response, status
@@ -7,10 +6,9 @@ from telegram import Update
 from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
                           CommandHandler, MessageHandler, filters)
 
-from .commands import DEFAULT_CONTEXT, Commands
-from .utils import ExceptionWrapper, can_reach_telegram
-
-logger = getLogger('uvicorn.error')
+from .commands import Commands
+from .telegram_utils import DEFAULT_CONTEXT
+from .utils import ExceptionWrapper, logger
 
 SECRET_HEADER = 'X-Telegram-Bot-Api-Secret-Token'
 BOT_TOKEN = getenv('BOT_TOKEN')
@@ -62,8 +60,6 @@ async def telegram_webhook(request: Request):
             logger.warning('wrong telegram secret token from %s', host)
             return Response(status_code=status.HTTP_403_FORBIDDEN)
 
-        if not can_reach_telegram():
-            logger.critical('telegram is unreachable')
         update = Update.de_json(await request.json(), telegram_app.bot)
         await telegram_app.process_update(update)
 

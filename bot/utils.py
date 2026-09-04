@@ -1,16 +1,7 @@
 from logging import getLogger
 from pathlib import Path
-from socket import create_connection
 
 logger = getLogger('uvicorn.error')
-
-
-def can_reach_telegram():
-    try:
-        with create_connection(('api.telegram.org', 443), timeout=5):
-            return True
-    except Exception:
-        return False
 
 
 def get_build_info():

@@ -1,21 +1,15 @@
-from logging import getLogger
-from typing import Awaitable, Callable
-
 from telegram import (BotCommand, BotCommandScopeChat, CallbackQuery,
                       InlineKeyboardButton, InlineKeyboardMarkup, Message,
                       Update)
-from telegram.ext import ContextTypes
-from telegram.helpers import escape_markdown
 
 from .scaleway import (ALLOWED_ACTIONS, AllowedActions, Scaleway,
                        is_allowed_action)
-from .telegram_retry import telegram_retry
+from .telegram_decorators import (only_allowed_chats_callback,
+                                  only_allowed_chats_message)
+from .telegram_utils import DEFAULT_CONTEXT, escape, telegram_retry
 from .utils import get_build_info
 
-DEFAULT_CONTEXT = ContextTypes.DEFAULT_TYPE
 CHAT_ID = int
-
-logger = getLogger('uvicorn.error')
 
 commands = [
     BotCommand('start', 'print list of commands'),
@@ -27,42 +21,6 @@ commands = [
       for action in sorted(ALLOWED_ACTIONS)]
 ]
 command_lines = [f'/{cmd.command} - {cmd.description}' for cmd in commands]
-
-
-def only_allowed_chats_message(
-    f: Callable[["Commands", Message, DEFAULT_CONTEXT], Awaitable[None]]
-):
-    async def w(self: "Commands", update: Update, context: DEFAULT_CONTEXT):
-        if message := update.message:
-            allowed, chat_id = self.is_chat_allowed(update)
-            if allowed:
-                await f(self, message, context)
-            else:
-                logger.warning('chat %s not allowed', chat_id)
-                await message.reply_text('this chat is not allowed')
-        else:
-            logger.warning('message is None')
-    return w
-
-
-def only_allowed_chats_callback(
-    f: Callable[["Commands", CallbackQuery], Awaitable[None]]
-):
-    async def w(self: "Commands", update: Update, context: DEFAULT_CONTEXT):
-        if callback_query := update.callback_query:
-            allowed, chat_id = self.is_chat_allowed(update)
-            if allowed:
-                await f(self, callback_query)
-            else:
-                logger.warning('chat %s not allowed', chat_id)
-                if message := update.effective_message:
-                    await message.reply_text('this chat is not allowed')
-        else:
-            logger.warning('callback_query is None')
-    return w
-
-
-def escape(text: str): return escape_markdown(text, version=2)
 
 
 class Commands:
