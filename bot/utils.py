@@ -30,3 +30,8 @@ class ExceptionWrapper:
         if p := self.parent:
             return f'{p.as_chain()} -> {self}'
         return str(self)
+
+
+def log_exception(pre_message: str, exception: Exception | None):
+    ew_chain = ExceptionWrapper(exception).as_chain()
+    logger.critical('%s -> %s', pre_message, ew_chain)

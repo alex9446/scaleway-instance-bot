@@ -3,7 +3,7 @@ from telegram import (BotCommand, BotCommandScopeChat, CallbackQuery,
                       Update)
 
 from .scaleway import (ALLOWED_ACTIONS, AllowedActions, Scaleway,
-                       is_allowed_action)
+                       is_allowed_action, try_redeploy)
 from .telegram_decorators import (only_allowed_chats_callback,
                                   only_allowed_chats_message)
 from .telegram_utils import DEFAULT_CONTEXT, escape, telegram_retry
@@ -15,6 +15,7 @@ commands = [
     BotCommand('start', 'print list of commands'),
     BotCommand('help', 'print list of commands'),
     BotCommand('info', 'get build info (if any)'),
+    BotCommand('redeploy', 'redeploy itself'),
     BotCommand('set_commands', 'set commands menu'),
     BotCommand('list_servers', 'list scaleway servers'),
     *[BotCommand(action, f'{action} scaleway server')
@@ -39,6 +40,11 @@ class Commands:
     @only_allowed_chats_message
     async def info(self, message: Message, context: DEFAULT_CONTEXT):
         await telegram_retry(message.reply_text, self.build_info)
+
+    @only_allowed_chats_message
+    async def redeploy(self, message: Message, context: DEFAULT_CONTEXT):
+        _, resp = await try_redeploy()
+        await telegram_retry(message.reply_text, resp)
 
     @only_allowed_chats_message
     async def set_commands(self, message: Message, context: DEFAULT_CONTEXT):

@@ -1,14 +1,17 @@
 from asyncio import gather
+from os import getenv
 from typing import Literal, TypeGuard, get_args
 from uuid import UUID
 
 from scaleway_async import ALL_ZONES, Client
+from scaleway_async.container.v1beta1.api import ContainerV1Beta1API
 from scaleway_async.instance.v1.api import InstanceV1API
 from scaleway_async.instance.v1.types import Server, ServerAction
 from scaleway_core.api import ScalewayException
 
 AllowedActions = Literal[
-    ServerAction.POWERON, ServerAction.POWEROFF, ServerAction.STOP_IN_PLACE
+    ServerAction.POWERON, ServerAction.POWEROFF,
+    ServerAction.REBOOT, ServerAction.STOP_IN_PLACE
 ]
 ALLOWED_ACTIONS: set[str] = set(get_args(AllowedActions))
 
@@ -74,3 +77,18 @@ class Scaleway:
         )
         await self.perform_action(action, server)
         return action
+
+
+async def redeploy_itself():
+    container_id = getenv('CONTAINER_ID')
+    container_region = getenv('CONTAINER_REGION')
+    if container_id and container_region:
+        container_api = ContainerV1Beta1API(Client.from_env())
+        return await container_api.deploy_container(container_id=container_id,
+                                                    region=container_region)
+
+
+async def try_redeploy() -> tuple[bool, str]:
+    if container := await redeploy_itself():
+        return (True, f'started redeploy of {container.name}')
+    return (False, 'error during redeploy, have you set dedicated variables?')
