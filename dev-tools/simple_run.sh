@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-export $(cat .env.local | xargs)
+export $(grep -v '^#' .env.local | xargs)
 
 poetry run python dev-tools/forward_updates.py &
 

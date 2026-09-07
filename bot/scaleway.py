@@ -3,11 +3,13 @@ from os import getenv
 from typing import Literal, TypeGuard, get_args
 from uuid import UUID
 
-from scaleway_async import ALL_ZONES, Client
+from scaleway_async import ALL_REGIONS, ALL_ZONES, Client
 from scaleway_async.container.v1beta1.api import ContainerV1Beta1API
 from scaleway_async.instance.v1.api import InstanceV1API
 from scaleway_async.instance.v1.types import Server, ServerAction
 from scaleway_core.api import ScalewayException
+
+from .utils import logger
 
 AllowedActions = Literal[
     ServerAction.POWERON, ServerAction.POWEROFF,
@@ -32,6 +34,7 @@ class Scaleway:
     def __init__(self):
         self.client = Client.from_env()
         self.instance_api = InstanceV1API(self.client)
+        self.container_api = ContainerV1Beta1API(self.client)
 
     async def list_servers(self):
         servers = await gather(*[
@@ -78,17 +81,37 @@ class Scaleway:
         await self.perform_action(action, server)
         return action
 
+    async def list_containers(self, namespace_id: str):
+        containers = await gather(*[
+            self.container_api.list_containers_all(
+                namespace_id=namespace_id,
+                region=region
+            ) for region in ALL_REGIONS
+        ], return_exceptions=True)
+        return [
+            container for zone_c in containers
+            if not isinstance(zone_c, BaseException)
+            for container in zone_c
+        ]
+
 
 async def redeploy_itself():
-    container_id = getenv('CONTAINER_ID')
-    container_region = getenv('CONTAINER_REGION')
-    if container_id and container_region:
-        container_api = ContainerV1Beta1API(Client.from_env())
-        return await container_api.deploy_container(container_id=container_id,
-                                                    region=container_region)
+    scw = Scaleway()
+    namespace_id = getenv('SCW_NAMESPACE_ID')
+    container_id = getenv('SCW_APPLICATION_ID')
+    if not (namespace_id and container_id):
+        logger.error('one of SCW_ variables is None')
+        return
+    containers = await scw.list_containers(namespace_id)
+    container = next((c for c in containers if c.id == container_id), None)
+    if not container:
+        logger.error('not found container with id %s', container_id)
+        return
+    return await scw.container_api.deploy_container(container_id=container.id,
+                                                    region=container.region)
 
 
 async def try_redeploy() -> tuple[bool, str]:
     if container := await redeploy_itself():
         return (True, f'started redeploy of {container.name}')
-    return (False, 'error during redeploy, have you set dedicated variables?')
+    return (False, 'error during redeploy, see logs')
