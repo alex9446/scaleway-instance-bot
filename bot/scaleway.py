@@ -37,8 +37,11 @@ class Scaleway:
         self.container_api = ContainerV1Beta1API(self.client)
 
     async def list_servers(self):
+        # workaround for
+        # https://github.com/scaleway/scaleway-sdk-python/pull/2161
+        FIX_ZONES = ALL_ZONES + ['it-mil-1']
         servers = await gather(*[
-            self.instance_api.list_servers_all(zone=zone) for zone in ALL_ZONES
+            self.instance_api.list_servers_all(zone=zone) for zone in FIX_ZONES
         ])
         return [server for zone_servers in servers for server in zone_servers]
 
