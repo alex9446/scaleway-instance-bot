@@ -1,6 +1,6 @@
 # Scaleway Instance Bot
 
-A Telegram bot for listing and powering on or off Scaleway Instances. It is served by FastAPI and processes Telegram updates through a protected webhook.
+A Telegram bot for listing and controlling Scaleway Instances. It is served by FastAPI and processes Telegram updates through a protected webhook.
 
 ## Requirements
 
@@ -20,6 +20,8 @@ ALLOWED_CHATS=<telegram-chat-id>,<another-chat-id>
 
 SCW_ACCESS_KEY=<access-key>
 SCW_SECRET_KEY=<secret-key>
+
+REDEPLOY_TOKEN=<redeploy-secret>
 ```
 
 ## Local development
@@ -60,4 +62,5 @@ curl "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
   --data-urlencode "secret_token=${SECRET_TOKEN}"
 ```
 
-Every deployment to `master` builds and publishes `ghcr.io/<owner>/scaleway-instance-bot:latest` through GitHub Actions.
+Every push to `master` builds and publishes `ghcr.io/<owner>/scaleway-instance-bot:latest` through GitHub Actions.
+A successful build triggers a redeploy of the configured Serverless container.
