@@ -89,19 +89,20 @@ class Commands:
             return str(error)
 
     @staticmethod
-    def get_server_name(context: DEFAULT_CONTEXT):
-        return context.args[0] if context.args else None
+    def get_server_name(text_parts: list[str]):
+        return text_parts[1] if len(text_parts) >= 2 else None
 
     @only_allowed_chats_message
     async def maybe_action(self, message: Message, context: DEFAULT_CONTEXT):
         if not message.text:
             await telegram_retry(message.reply_text, 'text is None')
             return
-        action = message.text.split()[0].replace('/', '').split("@")[0]
+        text_parts = message.text.split()
+        action = text_parts[0].replace('/', '').split("@")[0]
         if not is_allowed_action(action):
             await telegram_retry(message.reply_text, 'action not valid')
             return
-        if server_name := self.get_server_name(context):
+        if server_name := self.get_server_name(text_parts):
             msg = await self.try_action(action, server_name)
             await telegram_retry(message.reply_text, msg)
         else:
